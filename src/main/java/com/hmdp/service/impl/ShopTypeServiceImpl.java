@@ -63,6 +63,5 @@ public class ShopTypeServiceImpl extends ServiceImpl<ShopTypeMapper, ShopType> i
 
         //返回
         return Result.ok(shopTypes);
-
     }
 }
