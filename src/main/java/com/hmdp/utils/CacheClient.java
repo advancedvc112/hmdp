@@ -23,7 +23,7 @@ public class CacheClient {
 
     //加锁
     private boolean tryLock(String key){
-        Boolean  flag = redisTemplate.opsForValue().setIfAbsent(key,"1",10,TimeUnit.SECONDS);
+        Boolean flag = redisTemplate.opsForValue().setIfAbsent(key,"1",10,TimeUnit.SECONDS);
         return BooleanUtil.isTrue(flag);
     }
 
@@ -86,6 +86,7 @@ public class CacheClient {
         String json = redisTemplate.opsForValue().get(key);
         //判断是否存在
         if(StrUtil.isBlank(json)){
+            //不存在，直接null
             return null;
         }
         //存在，要返回json，json要转化为对象，要反序列化
@@ -94,19 +95,26 @@ public class CacheClient {
         LocalDateTime expireTime = redisData.getExpireTime();
         //判断有没有过期
         if(expireTime.isAfter(LocalDateTime.now())) {
+            //没有过期，直接返回redis中的结果
             return r;
         }
         //过期，要缓存重建
         String lockKey = LOCK_SHOP_KEY + id;
+        //拿到锁，使用redis客户端的setIfAbsent方法来实现类似锁机制
+        //setIfAbsent其实就是setnx命令，有key就不给入，无key就会创建，实际上这个key就是个锁标识
+        //setnx命令是原子性操作，不会被其他线程打断，同时设置了10秒TTL
         boolean isLock = tryLock(lockKey);
         if(isLock){
             CACHE_REBUILD_EXECUTOR.submit(()->{
                 try {
+                    //查数据库
                     R r1 = dbFallback.apply(id);
+                    //存redis
                     this.setLogicalExpire(key, r1, time, timeUnit);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 } finally {
+                    //释放锁
                     unlock(key);
                 }
             });
