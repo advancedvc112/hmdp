@@ -42,17 +42,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private RedissonClient redissonClient;
-
-    //创建rua脚本使用工具，加载Lua脚本
-    private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
-    static {
-        SECKILL_SCRIPT = new DefaultRedisScript<>();
-        SECKILL_SCRIPT.setResultType(Long.class);
-        SECKILL_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
-    }
-
     @Resource
     private RedisTemplate<Object, Object> redisTemplate;
+
+    private IVoucherOrderService proxy;
 
     //阻塞队列：缓冲订单需求
     private BlockingQueue<VoucherOrder> orderTasks = new ArrayBlockingQueue<>(1024 * 1024);
@@ -82,6 +75,16 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
     }
 
+    //创建rua脚本使用工具，加载Lua脚本
+    private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
+    static {
+        SECKILL_SCRIPT = new DefaultRedisScript<>();
+        SECKILL_SCRIPT.setResultType(Long.class);
+        SECKILL_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
+    }
+
+
+
     private void handleVoucherOrder(VoucherOrder voucherOrder) {
         Long userId = voucherOrder.getUserId();
         //创建自己的锁对象
@@ -99,7 +102,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
     }
 
-    private IVoucherOrderService proxy;
     @Override
     @Transactional
     public Result seckillVoucher(Long voucherId) {
